@@ -54,11 +54,12 @@ function calc_emission_kernel_matrix!(kernel_matrix_raw, star, geometry, orienta
         v_z = v_z_start + v_z_step*i_v_z - v_z_step/2
         kernel_matrix_raw[i_v_z, :] = kernel
         # println(io, "$n_jobs $i_thread $i_v_z $v_z $kernel")
-        print("\e[2K\e[1GThread $i_thread (v_zs[$i_v_z] = $v_z) is done. $n_jobs remaining tasks. ")
         n_jobs -= 1
+        print("\e[2K\e[1GTask $i_v_z is done (thread $i_thread, v_z = $v_z). $n_jobs remaining tasks. ")
     end
     wait(progress_worker)
     print("\n")
+
     # close(io)
 
     # println("All is done")
