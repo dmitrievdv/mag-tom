@@ -1,0 +1,146 @@
+function calc_emission_kernel_matrix!(kernel_matrix_raw, star, geometry, orientation, Δv_z, v_z_borders = (-3e7, 3e7); n_Rm = 10, n_vz = 10)
+    n, n_ζ = size(kernel_matrix_raw)
+    
+    v_z_start, v_z_end = v_z_borders
+    v_z_step = (v_z_end - v_z_start)/n
+
+    n_jobs = n
+
+    jobs = Channel{Int}(n_jobs)
+    results = Channel{Tuple{Int, Int, Vector{Float64}}}(n_jobs)
+
+    println("Jobs creation")
+
+    for i_v_z = 1:n
+        put!(jobs, i_v_z)
+    end
+
+    n_threads = Threads.nthreads(:default)
+
+    println("Work tasks, $n_threads")
+
+    workers = []
+
+    for i_thread = 1:n_threads
+        w = Threads.@spawn for job in jobs
+            i_v_z = job
+            v_z = v_z_start + v_z_step*i_v_z - v_z_step/2
+            kernel = zeros(n_ζ)
+            for i_ζ = 1:n_ζ
+                ζ = i_ζ/n_ζ - 1/2n_ζ
+                # println("$ζ $v_z Rm")
+                kernel[i_ζ] += calc_kernel_advanced(star, geometry, orientation, ζ, v_z, Δv_z, n_Rm = n_Rm)/π
+                # println("-$ζ $v_z Rm")
+                kernel[i_ζ] += calc_kernel_advanced(star, geometry, orientation, -ζ, v_z, Δv_z, n_Rm = n_Rm)/π
+                # println("$ζ $v_z vz")
+                kernel[i_ζ] += calc_velocity_kernel_advanced(star, geometry, orientation, ζ, v_z, Δv_z, n_vz = n_vz)/π
+                # println("-$ζ $v_z vz")
+                kernel[i_ζ] += calc_velocity_kernel_advanced(star, geometry, orientation, -ζ, v_z, Δv_z, n_vz = n_vz)/π
+            end
+            put!(results, (i_thread, i_v_z, kernel))
+        end
+        push!(workers, w)
+    end
+
+    # println("Progress, $(Threads.nthreads(:interactive))")
+    # println(istaskstarted.(workers))
+
+    # io = open("kernel_calc.log", "w")
+
+    print("Nothing is done. ")
+    progress_worker = Threads.@spawn :interactive  while n_jobs > 0
+        print("Waiting...")
+        i_thread, i_v_z, kernel = take!(results)
+        v_z = v_z_start + v_z_step*i_v_z - v_z_step/2
+        kernel_matrix_raw[i_v_z, :] = kernel
+        # println(io, "$n_jobs $i_thread $i_v_z $v_z $kernel")
+        print("\e[2K\e[1GThread $i_thread (v_zs[$i_v_z] = $v_z) is done. $n_jobs remaining tasks. ")
+        n_jobs -= 1
+    end
+    wait(progress_worker)
+    print("\n")
+    # close(io)
+
+    # println("All is done")
+    close(jobs)
+    close(results)
+    # for i_v_z = 1:n
+    #     v_z = v_z_start + v_z_step*i_v_z - v_z_step/2
+    #     # println(v_z)
+    #     for i_ζ = 1:n_ζ
+    #         ζ = i_ζ/n_ζ - 1/2n_ζ
+    #         kernel_matrix_raw[i_v_z, i_ζ] += TTauUtils.Profiles.calc_kernel_advanced(star, geometry, orientation, ζ, v_z, Δv_z, n_Rm = n_Rm)/π
+    #         kernel_matrix_raw[i_v_z, i_ζ] += TTauUtils.Profiles.calc_kernel_advanced(star, geometry, orientation, -ζ, v_z, Δv_z, n_Rm = n_Rm)/π
+    #         kernel_matrix_raw[i_v_z, i_ζ] += TTauUtils.Profiles.calc_velocity_kernel_advanced(star, geometry, orientation, ζ, v_z, Δv_z, n_vz = n_vz)/π
+    #         kernel_matrix_raw[i_v_z, i_ζ] += TTauUtils.Profiles.calc_velocity_kernel_advanced(star, geometry, orientation, -ζ, v_z, Δv_z, n_vz = n_vz)/π
+    #     end
+    # end
+end
+
+function calc_simple_kernel_matrix(star, geometry, orientation, v_z_borders, Δv_z, n, n_ζ)
+    kernel = zeros(n, n_ζ, 2)
+
+    v_z_start, v_z_end = v_z_borders
+    v_z_step = (v_z_end - v_z_start)/n
+
+    for i_v_z = 1:n
+        v_z = v_z_start + v_z_step*i_v_z - v_z_step/2
+    #     # println(v_z)
+        for i_ζ = 1:n_ζ
+            ζ = i_ζ/n_ζ - 1/2n_ζ
+            kernel[i_v_z, i_ζ, 1] += calc_kernel(star, geometry, orientation, Δv_z, ζ, v_z)/π
+            kernel[i_v_z, i_ζ, 1] += calc_kernel(star, geometry, orientation, Δv_z, -ζ, v_z)/π
+            kernel[i_v_z, i_ζ, 2] += calc_velocity_kernel(star, geometry, orientation, Δv_z, ζ, v_z)/π
+            kernel[i_v_z, i_ζ, 2] += calc_velocity_kernel(star, geometry, orientation, Δv_z, -ζ, v_z)/π
+        end
+    end
+    return kernel
+end
+
+function kernel_ζ_half(kernel_matrix)
+    n, n_ζ = size(kernel_matrix)
+    if n_ζ%2 != 0
+        return kernel_matrix
+    end
+    half_kernel = zeros(n, n_ζ÷2)
+    for i = 1:n, i_ζ = 1:n_ζ
+        half_kernel[i,(i_ζ-1)÷2+1] += kernel_matrix[i,i_ζ]/2
+    end
+    return half_kernel
+end
+
+function kernel_vz_half(kernel_matrix)
+    n, n_ζ = size(kernel_matrix)
+    if n%2 != 0
+        return kernel_matrix
+    end
+    half_kernel = zeros(n÷2, n_ζ)
+    for i = 1:n, i_ζ = 1:n_ζ
+        half_kernel[(i-1)÷2+1,i_ζ] += kernel_matrix[i,i_ζ]/2
+    end
+    return half_kernel
+end
+
+function kernel_ζ_n_half(kernel_matrix, n)
+    _, n_ζ = size(kernel_matrix)
+    if n_ζ%(2^n) != 0
+        return kernel_matrix
+    end
+    half_kernel = kernel_matrix
+    for i_half = 1:n
+        half_kernel = kernel_ζ_half(half_kernel)
+    end
+    return half_kernel
+end
+
+function kernel_vz_n_half(kernel_matrix, n)
+    n_freq, _ = size(kernel_matrix)
+    if n_freq%(2^n) != 0
+        return kernel_matrix
+    end
+    half_kernel = kernel_matrix
+    for i_half = 1:n
+        half_kernel = kernel_vz_half(half_kernel)
+    end
+    return half_kernel
+end
