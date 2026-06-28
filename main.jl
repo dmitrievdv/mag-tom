@@ -19,17 +19,23 @@ include("kernel_calc.jl")
 
 star = Star("test", 2, 0.8, 4000, 10)
 geometry = DipoleGeometry(4,5)
-orientation = Orientation(75)
+orientation = Orientation(60)
 
 n = 512
+v_z_borders = (-3.5e7, 3.5e7) 
 
 kernel = zeros(n, 2n)
 
-# calc_kernel_advanced(star, geometry, orientation, -0.693359375, -1.17578125e7, 1e6; n_Rm = 40)
-# @time kernel_simp = calc_simple_kernel_matrix(star, geometry, orientation, (-3.5e7, 3.5e7), 1e6, n, 2n)
-@time calc_emission_kernel_matrix!(kernel, star, geometry, orientation, 1e6, (-3.5e7, 3.5e7); n_Rm = 20, n_vz = 20)
-# kernel = kernel_ζ_n_half(kernel, 3)
+# @time kernel_simp = calc_simple_kernel_matrix(star, geometry, orientation, v_z_borders, 1e6, n, 2n)
+@time calc_emission_kernel_matrix!(kernel, star, geometry, orientation, 1e6, v_z_borders; n_Rm = 20, n_vz = 20)
+# kernel = kernel_ζ_n_half(kernel, 1)
 # kernel = kernel_vz_n_half(kernel, 2)
+
+n_freq, n_ζ = size(kernel)
+ζs = [2i_ζ/n_ζ - 1/n_ζ for i_ζ = 1:(n_ζ÷2)]
+v_z_start, v_z_end = v_z_borders
+v_z_step = (v_z_end - v_z_start)/n_freq
+v_zs = [v_z_start + v_z_step*i_v_z - v_z_step/2 for i_v_z = 1:n_freq]
 
 fig = Figure()
 ax = Axis(fig[1,1])
@@ -38,6 +44,7 @@ ax = Axis(fig[1,1])
 # linkaxes!(ax, ax_simp)
 
 # heatmap!(ax_simp, log10.(kernel_simp[:,:,1]*0.2 + kernel_simp[:,:,2]*1e5), colorrange = [-3,3])
-heatmap!(ax, log10.(kernel), colorrange = [-3,3])
+heatmap!(ax, v_zs, ζs, log10.(kernel), colorrange = [-3,3])
 
-fig
+screen = display(fig)
+wait(screen) 
