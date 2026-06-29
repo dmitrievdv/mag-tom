@@ -43,7 +43,7 @@ function calc_emission_kernel_matrix!(kernel_matrix_raw, star, geometry, orienta
                 # println("-$ζ $v_z vz")
                 kernel[i_ζ] += calc_velocity_kernel_advanced(star, geometry, orientation, -ζ, v_z, Δv_z, n_vz = n_vz)/π
             end
-            put!(results, (i_thread, i_v_z, kernel))
+            put!(results, (Threads.threadid(), i_v_z, kernel))
         end
         push!(workers, w)
     end

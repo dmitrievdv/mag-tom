@@ -35,20 +35,27 @@ incs = [30,45]
 Δv_zs = [1e6]
 Hs = [1.0,3.0]
 
-# calc_and_save_kernels(star, R_ins, Ws, incs, Δv_zs, Hs, v_z_borders, n, 2n)
+precompile(calc_and_save_kernels, tuple(typeof.([R_ins, Ws, incs, Δv_zs, Hs, v_z_borders, n, 2n])...))
+@time calc_and_save_kernels(star, R_ins, Ws, incs, Δv_zs, Hs, v_z_borders, n, 2n)
 
-kernel = zeros(8, 16)
-@time calc_emission_kernel_matrix!(kernel, star, geometry, orientation, 1e6, v_z_borders; n_Rm = 20, n_vz = 20)
-kernel = zeros(n, 2n)
-@time calc_emission_kernel_matrix!(kernel, star, geometry, orientation, 1e6, v_z_borders; n_Rm = 20, n_vz = 20)
-# kernel = kernel_ζ_n_half(kernel, 1)
-# kernel = kernel_vz_n_half(kernel, 2)
+# kernel = zeros(8, 16)
+# @time calc_emission_kernel_matrix!(kernel, star, geometry, orientation, 1e6, v_z_borders; n_Rm = 20, n_vz = 20)
+# kernel = zeros(n, 2n)
+# # @time calc_emission_kernel_matrix!(kernel, star, geometry, orientation, 1e6, v_z_borders; n_Rm = 20, n_vz = 20)
 
 # n_freq, n_ζ = size(kernel)
 # ζs = [2i_ζ/n_ζ - 1/n_ζ for i_ζ = 1:(n_ζ÷2)]
 # v_z_start, v_z_end = v_z_borders
 # v_z_step = (v_z_end - v_z_start)/n_freq
 # v_zs = [v_z_start + v_z_step*i_v_z - v_z_step/2 for i_v_z = 1:n_freq]
+# @time calc_absorption_profile_parallel(star, geometry, orientation, [0.0], 1e6, 0.5, 0.5, 1.0)
+# @time calc_absorption_profile_parallel(star, geometry, orientation, v_zs, 1e6, 0.01, 0.01, 1.0)
+
+
+# kernel = kernel_ζ_n_half(kernel, 1)
+# kernel = kernel_vz_n_half(kernel, 2)
+
+# 
 
 # fig = Figure()
 # ax = Axis(fig[1,1])

@@ -40,8 +40,8 @@ function calc_and_save_kernels(star, R_ins, Ws, incs, Δv_zs, Hs, v_z_borders, n
 
         print("$inc $R_in $W $Δv_z kernel calc... does file kernels/$(ker_string)_ker.dat exist? $(isfile("kernels/$(ker_string)_ker.dat"))")
         if !isfile("kernels/$(ker_string)_ker.dat")
-            kernel_matrix = calc_emission_kernel_matrix(star, geometry, orientation, Δv_z, n_freq, n_ζ, v_z_borders; n_Rm = 40, n_vz = 40)
             print("\n")
+            kernel_matrix = calc_emission_kernel_matrix(star, geometry, orientation, Δv_z, n_freq, n_ζ, v_z_borders; n_Rm = 40, n_vz = 40)
             print("\e[1A\e[2K\e[1G")
             print("\e[1A\e[2K\e[1G")
             print("\e[1A\e[2K\e[1G")
@@ -56,10 +56,15 @@ function calc_and_save_kernels(star, R_ins, Ws, incs, Δv_zs, Hs, v_z_borders, n
             H = Hs[i_H]
             if !isfile("kernels/$(ker_string)_$(i_H)_abs.dat")
                 print("$inc $R_in $W $Δv_z $H absorption calc... does file kernels/$(ker_string)_$(i_H)_abs.dat exist? $(isfile("kernels/$(ker_string)_$(i_H)_abs.dat"))")
-                absorption = calc_absorption_profile(star, geometry, orientation, v_zs, Δv_z, 0.01, 0.01, H)
+                print("\n")
+                absorption = calc_absorption_profile_parallel(star, geometry, orientation, v_zs, Δv_z, 0.01, 0.01, H)
                 open("kernels/$(ker_string)_$(i_H)_abs.dat", "w") do io
                     printf_array(io, absorption); print(io, "\n")
                 end
+                print("\e[1A\e[2K\e[1G")
+                print("\e[1A\e[2K\e[1G")
+                print("\e[1A\e[2K\e[1G")
+                print("\e[1A\e[2K\e[1G")
                 print("\e[2K\e[1G")
             end
         end

@@ -641,8 +641,8 @@ function calc_velocity_kernel_advanced(star :: AbstractStar, geometry :: DipoleG
     return kernel
 end
 
-function calc_absorption_profile(star :: AbstractStar, geometry :: DipoleGeometry, orientation :: Orientation, v_z_arr, Δv_z, grid_step, z_step, hotspot_val = 1.0)
-    x_arr, y_arr, dS_arr = polargrid(1.0, grid_step)
+function calc_absorption_profile(x_arr, y_arr, dS_arr, star :: AbstractStar, geometry :: DipoleGeometry, 
+                                            orientation :: Orientation, v_z_arr, Δv_z, grid_step, z_step, hotspot_val)
     n_grid = length(x_arr)
     absorption = 0.0
 
@@ -660,6 +660,7 @@ function calc_absorption_profile(star :: AbstractStar, geometry :: DipoleGeometr
     poly = zeros(ComplexF64, 7)
 
     for i_grid = 1:n_grid
+        # println("$x, $y, $n_borders, $dS, $(√(x^2 + y^2))")
         x = x_arr[i_grid]; y = y_arr[i_grid]; dS = dS_arr[i_grid] 
         if abs(hotspot_val - 1) > 1e-8
             if isthispointonspot(hotspot_star, x, y, orientation.star_axis)
@@ -678,7 +679,7 @@ function calc_absorption_profile(star :: AbstractStar, geometry :: DipoleGeometr
 
         if n_borders == 0; continue; end
         absorption_profile_ray .= 0.0
-        # println("$x, $y, $n_borders, $dS, $(√(x^2 + y^2))")
+        # println("$i_grid $n_grid $x, $y, $n_borders, $dS, $(√(x^2 + y^2))")
         for i_out = n_borders:-2:2
             z_in = borders[i_out-1]; z_out = borders[i_out]
             # println("\t$z_in, $z_out")
@@ -707,7 +708,67 @@ function calc_absorption_profile(star :: AbstractStar, geometry :: DipoleGeometr
         end
         absorption_profile += absorption_profile_ray
     end
-    absorption_profile ./ sum(dS_arr)
+    absorption_profile
+end
+
+function calc_absorption_profile(star :: AbstractStar, geometry :: DipoleGeometry, orientation :: Orientation, v_z_arr, Δv_z, grid_step, z_step, hotspot_val = 1.0)
+    x_arr, y_arr, dS_arr = polargrid(1.0, grid_step)
+    calc_absorption_profile(x_arr, y_arr, dS_arr, star, geometry, star :: AbstractStar, geometry :: DipoleGeometry, 
+                                            orientation :: Orientation, v_z_arr, Δv_z, grid_step, z_step, hotspot_val) / sum(dS_arr)
+end
+
+function calc_absorption_profile_parallel(star :: AbstractStar, geometry :: DipoleGeometry, orientation :: Orientation, v_z_arr, Δv_z, grid_step, z_step, hotspot_val = 1.0)
+    x_arr, y_arr, dS_arr = polargrid(1.0, grid_step)
+
+    abs_prof = zeros(length(v_z_arr))
+
+    n_threads = Threads.nthreads(:default)
+
+    n_jobs = 2n_threads
+
+    jobs = Channel{Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}}}(n_jobs)
+    results = Channel{Tuple{Int, Vector{Float64}}}(n_jobs)
+
+    println("Jobs creation")
+
+    for i_job = 1:n_jobs
+        put!(jobs, (x_arr[i_job:n_jobs:end], y_arr[i_job:n_jobs:end], dS_arr[i_job:n_jobs:end]))
+    end
+
+    println("Work tasks, $n_threads")
+
+    workers = []
+
+    for i_thread = 1:n_threads
+        w = Threads.@spawn for job in jobs
+            x_arr_job, y_arr_job, dS_arr_job = job
+            # println(length(x_arr_job))
+            abs_prof_job = calc_absorption_profile(x_arr_job, y_arr_job, dS_arr_job, star, geometry, orientation, v_z_arr, 
+                                                            Δv_z, grid_step, z_step, hotspot_val)
+            # println(threadid())
+            put!(results, (Threads.threadid(), abs_prof_job))
+            # println("put")
+        end
+        push!(workers, w)
+    end
+
+    print("Nothing is done. ")
+    n_done = 0
+    progress_worker = Threads.@spawn :interactive  while n_jobs > 0
+        print("Waiting...")
+        i_thread, abs_prof_job = take!(results)
+        n_done += 1
+        abs_prof += abs_prof_job
+        n_jobs -= 1
+        print("\e[2K\e[1GTask $n_done is done (thread $i_thread). $n_jobs remaining tasks. ")
+    end
+    wait(progress_worker)
+    print("\n")
+
+    close(jobs)
+    close(results)
+
+    abs_prof / sum(dS_arr)
 end
 
 function calc_absorption_profile(star :: AbstractStar, geometry :: DipoleGeometry, orientation :: Orientation, n_freq :: Int, 
