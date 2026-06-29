@@ -10,15 +10,17 @@ function calc_emission_kernel_matrix!(kernel_matrix_raw, star, geometry, orienta
     v_z_start, v_z_end = v_z_borders
     v_z_step = (v_z_end - v_z_start)/n
 
-    n_jobs = n
+    n_threads = Threads.nthreads(:default)
+
+    n_jobs = min(4n_threads, n)
 
     jobs = Channel{Int}(n_jobs)
-    results = Channel{Tuple{Int, Int, Vector{Float64}}}(n_jobs)
+    results = Channel{Tuple{Int, Int, Matrix{Float64}}}(n_jobs)
 
     println("Jobs creation")
 
-    for i_v_z = 1:n
-        put!(jobs, i_v_z)
+    for i_job = 1:n_jobs
+        put!(jobs, i_job)
     end
 
     n_threads = Threads.nthreads(:default)
@@ -29,21 +31,26 @@ function calc_emission_kernel_matrix!(kernel_matrix_raw, star, geometry, orienta
 
     for i_thread = 1:n_threads
         w = Threads.@spawn for job in jobs
-            i_v_z = job
-            v_z = v_z_start + v_z_step*i_v_z - v_z_step/2
-            kernel = zeros(n_ζ)
-            for i_ζ = 1:n_ζ
-                ζ = i_ζ/n_ζ - 1/2n_ζ
-                # println("$ζ $v_z Rm")
-                kernel[i_ζ] += calc_kernel_advanced(star, geometry, orientation, ζ, v_z, Δv_z, n_Rm = n_Rm)/π
-                # println("-$ζ $v_z Rm")
-                kernel[i_ζ] += calc_kernel_advanced(star, geometry, orientation, -ζ, v_z, Δv_z, n_Rm = n_Rm)/π
-                # println("$ζ $v_z vz")
-                kernel[i_ζ] += calc_velocity_kernel_advanced(star, geometry, orientation, ζ, v_z, Δv_z, n_vz = n_vz)/π
-                # println("-$ζ $v_z vz")
-                kernel[i_ζ] += calc_velocity_kernel_advanced(star, geometry, orientation, -ζ, v_z, Δv_z, n_vz = n_vz)/π
+            # println(job)
+            i_job = job
+            i_vzs = [i_job:n_jobs:n;]
+            v_zs = v_z_start .+ v_z_step*i_vzs .- v_z_step/2
+            # println(length(v_zs))
+            kernel = zeros(length(v_zs), n_ζ)
+            for (i_vz,v_z) in enumerate(v_zs)
+                for i_ζ = 1:n_ζ
+                    ζ = i_ζ/n_ζ - 1/2n_ζ
+                    # println("$ζ $v_z Rm")
+                    kernel[i_vz,i_ζ] += calc_kernel_advanced(star, geometry, orientation, ζ, v_z, Δv_z, n_Rm = n_Rm)/π
+                    # println("-$ζ $v_z Rm")
+                    kernel[i_vz,i_ζ] += calc_kernel_advanced(star, geometry, orientation, -ζ, v_z, Δv_z, n_Rm = n_Rm)/π
+                    # println("$ζ $v_z vz")
+                    kernel[i_vz,i_ζ] += calc_velocity_kernel_advanced(star, geometry, orientation, ζ, v_z, Δv_z, n_vz = n_vz)/π
+                    # println("-$ζ $v_z vz")
+                    kernel[i_vz,i_ζ] += calc_velocity_kernel_advanced(star, geometry, orientation, -ζ, v_z, Δv_z, n_vz = n_vz)/π
+                end
             end
-            put!(results, (Threads.threadid(), i_v_z, kernel))
+            put!(results, (Threads.threadid(), i_job, kernel))
         end
         push!(workers, w)
     end
@@ -54,14 +61,22 @@ function calc_emission_kernel_matrix!(kernel_matrix_raw, star, geometry, orienta
     # io = open("kernel_calc.log", "w")
 
     print("Nothing is done. ")
-    progress_worker = Threads.@spawn :interactive  while n_jobs > 0
+    n_done = 0
+    n_remain = n_jobs
+    progress_worker = Threads.@spawn :interactive  while n_remain > 0
         print("Waiting...")
-        i_thread, i_v_z, kernel = take!(results)
-        v_z = v_z_start + v_z_step*i_v_z - v_z_step/2
-        kernel_matrix_raw[i_v_z, :] = kernel
+        i_thread, i_job, kernel = take!(results)
+        i_vzs = [i_job:n_jobs:n;]
+        # println(i_vzs)
+        for (i_i_vz,i_vz) in enumerate(i_vzs), i_ζ = 1:n_ζ
+            kernel_matrix_raw[i_vz, i_ζ] = kernel[i_i_vz, i_ζ]
+        end
+        # v_z = v_z_start + v_z_step*i_v_z - v_z_step/2
+        # kernel_matrix_raw[i_vzs, :] .= kernel
         # println(io, "$n_jobs $i_thread $i_v_z $v_z $kernel")
-        n_jobs -= 1
-        print("\e[2K\e[1GTask $i_v_z is done (thread $i_thread, v_z = $v_z). $n_jobs remaining tasks. ")
+        n_remain -= 1
+        n_done += 1
+        print("\e[2K\e[1GTask $n_done is done (thread $i_thread). $n_remain remaining tasks. ")
     end
     wait(progress_worker)
     print("\n")
