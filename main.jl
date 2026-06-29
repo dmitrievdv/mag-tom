@@ -35,9 +35,12 @@ incs = [30,45]
 Δv_zs = [1e6]
 Hs = [1.0,3.0]
 
-calc_and_save_kernels(star, R_ins, Ws, incs, Δv_zs, Hs, v_z_borders, n, 2n)
+# calc_and_save_kernels(star, R_ins, Ws, incs, Δv_zs, Hs, v_z_borders, n, 2n)
 
-# @time calc_emission_kernel_matrix!(kernel, star, geometry, orientation, 1e6, v_z_borders; n_Rm = 20, n_vz = 20)
+kernel = zeros(8, 16)
+@time calc_emission_kernel_matrix!(kernel, star, geometry, orientation, 1e6, v_z_borders; n_Rm = 20, n_vz = 20)
+kernel = zeros(n, 2n)
+@time calc_emission_kernel_matrix!(kernel, star, geometry, orientation, 1e6, v_z_borders; n_Rm = 20, n_vz = 20)
 # kernel = kernel_ζ_n_half(kernel, 1)
 # kernel = kernel_vz_n_half(kernel, 2)
 
