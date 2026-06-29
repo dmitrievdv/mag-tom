@@ -4,7 +4,7 @@ function printf_array(io, arr)
     end
 end
 
-function calc_and_save_kernels(star, R_ins, Ws, incs, Δv_zs, Hs, v_z_borders, n_freq, n_ζ)
+function calc_and_save_kernels(star, R_ins, Ws, incs, Δv_zs, Hs, v_z_borders, n_freq, n_ζ; n_Rm = 10, n_vz = 10)
     # rm("kernels", recursive = true, force = true)
     mkpath("kernels")
     open("kernels/kernel_grid.dat", "w") do io
@@ -41,7 +41,7 @@ function calc_and_save_kernels(star, R_ins, Ws, incs, Δv_zs, Hs, v_z_borders, n
         print("$inc $R_in $W $Δv_z kernel calc... does file kernels/$(ker_string)_ker.dat exist? $(isfile("kernels/$(ker_string)_ker.dat"))")
         if !isfile("kernels/$(ker_string)_ker.dat")
             print("\n")
-            kernel_matrix = calc_emission_kernel_matrix(star, geometry, orientation, Δv_z, n_freq, n_ζ, v_z_borders; n_Rm = 40, n_vz = 40)
+            kernel_matrix = calc_emission_kernel_matrix(star, geometry, orientation, Δv_z, n_freq, n_ζ, v_z_borders; n_Rm = n_Rm, n_vz = n_vz)
             print("\e[1A\e[2K\e[1G")
             print("\e[1A\e[2K\e[1G")
             print("\e[1A\e[2K\e[1G")

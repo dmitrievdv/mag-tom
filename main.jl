@@ -31,12 +31,15 @@ kernel = zeros(n, 2n)
 # @time kernel_simp = calc_simple_kernel_matrix(star, geometry, orientation, v_z_borders, 1e6, n, 2n)
 R_ins = [3]
 Ws = [1]
-incs = [30,45]
+incs = [15,75]
 Δv_zs = [1e6]
-Hs = [1.0,3.0]
+Hs = [1.0:1:10;]
 
-precompile(calc_and_save_kernels, tuple(typeof.([R_ins, Ws, incs, Δv_zs, Hs, v_z_borders, n, 2n])...))
-@time calc_and_save_kernels(star, R_ins, Ws, incs, Δv_zs, Hs, v_z_borders, n, 2n)
+# precompile(calc_and_save_kernels, tuple(typeof.([R_ins, Ws, incs, Δv_zs, Hs, v_z_borders, n, 2n])...))
+rm("kernels", recursive = true, force = true)
+@time calc_and_save_kernels(star, [R_ins[1]], [Ws[1]], [incs[1]], [Δv_zs[1]], [Hs[1]], v_z_borders, 32, 64; n_Rm = 10, n_vz = 10)
+rm("kernels", recursive = true, force = true)
+@time calc_and_save_kernels(star, R_ins, Ws, incs, Δv_zs, Hs, v_z_borders, n, 2n; n_Rm = 40, n_vz = 40)
 
 # kernel = zeros(8, 16)
 # @time calc_emission_kernel_matrix!(kernel, star, geometry, orientation, 1e6, v_z_borders; n_Rm = 20, n_vz = 20)
