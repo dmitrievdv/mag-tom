@@ -1,3 +1,9 @@
+function calc_emission_kernel_matrix(star, geometry, orientation, Δv_z, n_freq, n_ζ, v_z_borders = (-3e7, 3e7); n_Rm = 10, n_vz = 10)
+    kernel = zeros(n_freq, n_ζ)
+    calc_emission_kernel_matrix!(kernel, star, geometry, orientation, Δv_z, v_z_borders; n_Rm = n_Rm, n_vz = n_vz)
+    return kernel
+end
+
 function calc_emission_kernel_matrix!(kernel_matrix_raw, star, geometry, orientation, Δv_z, v_z_borders = (-3e7, 3e7); n_Rm = 10, n_vz = 10)
     n, n_ζ = size(kernel_matrix_raw)
     

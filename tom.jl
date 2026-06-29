@@ -646,8 +646,6 @@ function calc_absorption_profile(star :: AbstractStar, geometry :: DipoleGeometr
     n_grid = length(x_arr)
     absorption = 0.0
 
-    kin = Models.SolidDipoleKin(star, 0.0)
-
     n_v_z = length(v_z_arr)
     absorption_profile = zeros(n_v_z)
     absorption_profile_ray = zeros(n_v_z)

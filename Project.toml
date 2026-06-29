@@ -1,6 +1,5 @@
 [deps]
 FFTW = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
-GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 LeastSquaresOptim = "0fc2ff8b-aaa3-5acd-a817-1944a5e08891"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 PolynomialRoots = "3a141323-8675-5d76-9d11-e1df1406c778"
