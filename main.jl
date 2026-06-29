@@ -23,7 +23,7 @@ star = Star("test", 2, 0.8, 4000, 10)
 geometry = DipoleGeometry(4,5)
 orientation = Orientation(60)
 
-n = 64
+n = 128
 v_z_borders = (-3.5e7, 3.5e7) 
 
 kernel = zeros(n, 2n)
