@@ -1,32 +1,14 @@
-using Polynomials
-using Roots
-import PolynomialRoots
-using LinearAlgebra
-using StaticArrays
-using Printf
-using LeastSquaresOptim
-using Statistics
-using FFTW
-# using GLMakie
-
-include("const.jl")
-include("star.jl")
-include("orientation.jl")
-include("geometry.jl")
-include("grids.jl")
-include("tom.jl")
-include("kernel_calc.jl")
-include("saveload.jl")
+include("include.jl")
 
 
 star = Star("test", 2, 0.8, 4000, 10)
 geometry = DipoleGeometry(4,5)
 orientation = Orientation(60)
 
-n = 512
+n = 256
 v_z_borders = (-3.5e7, 3.5e7) 
 
-kernel = zeros(n, 2n)
+kernel = zeros(4n, n)
 
 # @time kernel_simp = calc_simple_kernel_matrix(star, geometry, orientation, v_z_borders, 1e6, n, 2n)
 R_ins = [3]
@@ -39,7 +21,7 @@ Hs = [1.0:1:10;]
 rm("kernels", recursive = true, force = true)
 @time calc_and_save_kernels(star, [R_ins[1]], [Ws[1]], [incs[1]], [Δv_zs[1]], [Hs[1]], v_z_borders, 32, 64; n_Rm = 10, n_vz = 10)
 rm("kernels", recursive = true, force = true)
-@time calc_and_save_kernels(star, R_ins, Ws, incs, Δv_zs, Hs, v_z_borders, n, 2n; n_Rm = 40, n_vz = 40)
+@time calc_and_save_kernels(star, R_ins, Ws, incs, Δv_zs, Hs, v_z_borders, 4n, n; n_Rm = 40, n_vz = 40)
 
 # kernel = zeros(8, 16)
 # @time calc_emission_kernel_matrix!(kernel, star, geometry, orientation, 1e6, v_z_borders; n_Rm = 20, n_vz = 20)

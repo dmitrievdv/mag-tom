@@ -2,3 +2,4 @@ kernel_calc.log
 Manifest.toml
 kernels/*
 .vscode/*
+kernels_txt/*
