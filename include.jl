@@ -7,6 +7,7 @@ using Printf
 using LeastSquaresOptim
 using Statistics
 using FFTW
+using DataInterpolations
 # using GLMakie
 
 include("const.jl")
@@ -17,3 +18,5 @@ include("grids.jl")
 include("tom.jl")
 include("kernel_calc.jl")
 include("saveload.jl")
+include("fit.jl")
+

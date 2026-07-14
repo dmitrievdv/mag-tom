@@ -1,5 +1,10 @@
 kernel_calc.log
 Manifest.toml
-kernels/*
-.vscode/*
-kernels_txt/*
+kernels
+.vscode
+kernels_txt
+kernels_bin
+hart_mag
+hart_to_fit
+*.bin
+*.pdf

@@ -490,8 +490,6 @@ function is_self_absorbed(star :: AbstractStar, geometry :: DipoleGeometry, orie
     is_self_absorbed(borders, roots, poly, star, geometry, orientation, x, y, z, v_z_0, Δv_z, z_step)
 end
 
-
-
 function calc_kernel(star :: AbstractStar, geometry :: DipoleGeometry, orientation :: Orientation, Δv_z, ζ, v_z)
     R_m = (geometry.r_mi + geometry.r_mo)/2
     ϕs = find_v_z(star, geometry, orientation, R_m, ζ, v_z)
@@ -662,11 +660,6 @@ function calc_absorption_profile(x_arr, y_arr, dS_arr, star :: AbstractStar, geo
     for i_grid = 1:n_grid
         # println("$x, $y, $n_borders, $dS, $(√(x^2 + y^2))")
         x = x_arr[i_grid]; y = y_arr[i_grid]; dS = dS_arr[i_grid] 
-        if abs(hotspot_val - 1) > 1e-8
-            if isthispointonspot(hotspot_star, x, y, orientation.star_axis)
-                dS *= hotspot_val
-            end
-        end
 
         calcborders_prealloc!(borders, roots, poly, x, y, geometry, orientation)
         
@@ -713,12 +706,42 @@ end
 
 function calc_absorption_profile(star :: AbstractStar, geometry :: DipoleGeometry, orientation :: Orientation, v_z_arr, Δv_z, grid_step, z_step, hotspot_val = 1.0)
     x_arr, y_arr, dS_arr = polargrid(1.0, grid_step)
-    calc_absorption_profile(x_arr, y_arr, dS_arr, star, geometry, star :: AbstractStar, geometry :: DipoleGeometry, 
-                                            orientation :: Orientation, v_z_arr, Δv_z, grid_step, z_step, hotspot_val) / sum(dS_arr)
+
+    θ_1 = asin(√(1/geometry.r_mo))
+    θ_2 = asin(√(1/geometry.r_mi))
+
+    hotspot_star = MagnetosphereSpotStar(star, 1e4, θ_1, θ_2)
+    n_grid = length(x_arr)
+    for i_grid = 1:n_grid
+        # println("$x, $y, $n_borders, $dS, $(√(x^2 + y^2))")
+        x = x_arr[i_grid]; y = y_arr[i_grid]; dS = dS_arr[i_grid] 
+        if abs(hotspot_val - 1) > 1e-8
+            if isthispointonspot(hotspot_star, x, y, orientation.star_axis)
+                dS_arr[i_grid] *= hotspot_val
+            end
+        end
+    end
+
+    calc_absorption_profile(x_arr, y_arr, dS_arr, star, geometry, orientation, v_z_arr, Δv_z, grid_step, z_step, hotspot_val) / sum(dS_arr)
 end
 
 function calc_absorption_profile_parallel(star :: AbstractStar, geometry :: DipoleGeometry, orientation :: Orientation, v_z_arr, Δv_z, grid_step, z_step, hotspot_val = 1.0)
     x_arr, y_arr, dS_arr = polargrid(1.0, grid_step)
+
+    θ_1 = asin(√(1/geometry.r_mo))
+    θ_2 = asin(√(1/geometry.r_mi))
+
+    hotspot_star = MagnetosphereSpotStar(star, 1e4, θ_1, θ_2)
+    n_grid = length(x_arr)
+    for i_grid = 1:n_grid
+        # println("$x, $y, $n_borders, $dS, $(√(x^2 + y^2))")
+        x = x_arr[i_grid]; y = y_arr[i_grid]; dS = dS_arr[i_grid] 
+        if abs(hotspot_val - 1) > 1e-8
+            if isthispointonspot(hotspot_star, x, y, orientation.star_axis)
+                dS_arr[i_grid] *= hotspot_val
+            end
+        end
+    end
 
     abs_prof = zeros(length(v_z_arr))
 
@@ -777,4 +800,29 @@ function calc_absorption_profile(star :: AbstractStar, geometry :: DipoleGeometr
     v_z_step = (v_z_end - v_z_start)/n_freq                                            
     v_z_arr = [v_z_start + v_z_step*i_v_z - v_z_step/2 for i_v_z = 1:n_freq]
     calc_absorption_profile(star :: AbstractStar, geometry :: DipoleGeometry, orientation :: Orientation, v_z_arr, Δv_z, grid_step, z_step)
+end
+
+function correct_absorption(star :: AbstractStar, geometry :: DipoleGeometry, orientation :: Orientation, grid_step, absorption, hotspot_val)
+    θ_1 = asin(√(1/geometry.r_mo))
+    θ_2 = asin(√(1/geometry.r_mi))
+
+    hotspot_star = MagnetosphereSpotStar(star, 1e4, θ_1, θ_2)
+
+    x_arr, y_arr, dS_arr = polargrid(1.0, grid_step)
+
+    sumS = sum(dS_arr)
+
+    n_grid = length(x_arr)
+    for i_grid = 1:n_grid
+        # println("$x, $y, $n_borders, $dS, $(√(x^2 + y^2))")
+        x = x_arr[i_grid]; y = y_arr[i_grid]; dS = dS_arr[i_grid] 
+        if abs(hotspot_val - 1) > 1e-8
+            if isthispointonspot(hotspot_star, x, y, orientation.star_axis)
+                dS_arr[i_grid]  *= hotspot_val
+            end
+        end
+    end
+
+    absorption_correct =  absorption * sumS/sum(dS_arr)
+    return absorption_correct
 end

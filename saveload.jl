@@ -163,3 +163,21 @@ function load_absorption_from_index_txt(i_inc, i_R_m, i_W, i_Δv_z, i_H, n_freq;
     absorption = zeros(n_freq)
     absorption = parse.(Float64, split(readline("$kernels_dir/$(i_inc)_$(i_R_m)_$(i_W)_$(i_Δv_z)_$(i_H)_abs.dat")))
 end
+
+function correct_absorption_files(star;kernels_dir = "kernels")
+    incs, R_ins, Ws, Δv_zs, Hs = load_kernel_models_grid(;kernels_dir)
+    for i_inc in eachindex(incs), i_R_in in eachindex(R_ins), i_W in eachindex(Ws), i_Δv_z in eachindex(Δv_zs), i_H in eachindex(Hs)
+        absorption = load_absorption_from_index(i_inc, i_R_in, i_W, i_Δv_z, i_H;kernels_dir)
+        R_in  = R_ins[i_R_in]; W = Ws[i_W]
+        geometry = DipoleGeometry(R_in, R_in+W)
+        inc = incs[i_inc]
+        orientation = Orientation(inc)
+        H = Hs[i_H]
+        absorption_correct = correct_absorption(star, geometry, orientation, 0.05, absorption, H)
+        ker_string = "$(i_inc)_$(i_R_in)_$(i_W)_$(i_Δv_z)"
+        open("$kernels_dir/$(ker_string)_$(i_H)_abs.bin", "w") do io
+            write_array(io, absorption_correct)
+        end
+        print("\e[2K\e[1G$(ker_string)_$(i_H)_abs.bin $H $(findmax(absorption)) $(findmax(absorption_correct))")
+    end
+end

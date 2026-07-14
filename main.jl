@@ -1,55 +1,55 @@
 include("include.jl")
 
 
-star = Star("test", 2, 0.8, 4000, 10)
-geometry = DipoleGeometry(4,5)
-orientation = Orientation(60)
+function main()
+star = Star("CTTS", 2, 0.8, 4000, 15)
 
-n = 256
-v_z_borders = (-3.5e7, 3.5e7) 
+# incs = [10:10:80.0;]
+# R_ins = [3.0,4,5]
+# Ws = [0.5,1,1.5]
+# Δv_zs = [1.5e6]
+# Hs = [1:3.0:10.0;]
 
-kernel = zeros(4n, n)
+# v_z_borders = (-3.5e7, 3.5e7)
+# n_freq = 256
+# n_ζ = 512
 
-# @time kernel_simp = calc_simple_kernel_matrix(star, geometry, orientation, v_z_borders, 1e6, n, 2n)
-R_ins = [3]
-Ws = [1]
-incs = [15,75]
-Δv_zs = [1e6]
-Hs = [1.0:1:10;]
+# calc_and_save_kernels(star, R_ins, Ws, incs, Δv_zs, Hs, v_z_borders, n_freq, n_ζ; n_Rm = 20, n_vz = 20)
 
-# precompile(calc_and_save_kernels, tuple(typeof.([R_ins, Ws, incs, Δv_zs, Hs, v_z_borders, n, 2n])...))
-rm("kernels", recursive = true, force = true)
-@time calc_and_save_kernels(star, [R_ins[1]], [Ws[1]], [incs[1]], [Δv_zs[1]], [Hs[1]], v_z_borders, 32, 64; n_Rm = 10, n_vz = 10)
-rm("kernels", recursive = true, force = true)
-@time calc_and_save_kernels(star, R_ins, Ws, incs, Δv_zs, Hs, v_z_borders, 4n, n; n_Rm = 40, n_vz = 40)
+# geometry_true = DipoleGeometry(4,5)
+# orientation_true = Orientation(60)
 
-# kernel = zeros(8, 16)
-# @time calc_emission_kernel_matrix!(kernel, star, geometry, orientation, 1e6, v_z_borders; n_Rm = 20, n_vz = 20)
-# kernel = zeros(n, 2n)
-# # @time calc_emission_kernel_matrix!(kernel, star, geometry, orientation, 1e6, v_z_borders; n_Rm = 20, n_vz = 20)
+source_known = open("hart_to_fit/mag_3-4_60_53_S.bin", "r") do io
+    read_array(io, Float64)
+end
 
-# n_freq, n_ζ = size(kernel)
-# ζs = [2i_ζ/n_ζ - 1/n_ζ for i_ζ = 1:(n_ζ÷2)]
-# v_z_start, v_z_end = v_z_borders
-# v_z_step = (v_z_end - v_z_start)/n_freq
-# v_zs = [v_z_start + v_z_step*i_v_z - v_z_step/2 for i_v_z = 1:n_freq]
-# @time calc_absorption_profile_parallel(star, geometry, orientation, [0.0], 1e6, 0.5, 0.5, 1.0)
-# @time calc_absorption_profile_parallel(star, geometry, orientation, v_zs, 1e6, 0.01, 0.01, 1.0)
+files = ["3-4_15_43", "3-4_35_43", "3-4_55_43", "3-4_75_43",
+         "3-4_15_52", "3-4_35_52", "3-4_55_52", "3-4_75_52"]
 
+mkpath("residuals")
 
-# kernel = kernel_ζ_n_half(kernel, 1)
-# kernel = kernel_vz_n_half(kernel, 2)
+io = open("hart_to_fit/mag_$(files[1])_P.bin", "r") 
+v_zs = reverse(read_array(io, Float64))'
+profiles = reverse(read_array(io, Float64))'
+close(io)
 
-# 
+for file in files[2:end]
+    io = open("hart_to_fit/mag_$(file)_P.bin", "r")
+    v_zs = vcat(v_zs, reverse(read_array(io, Float64))')
+    profiles = vcat(profiles, reverse(read_array(io, Float64))')
+    close(io)
+end
+    
+    
 
-# fig = Figure()
-# ax = Axis(fig[1,1])
-# # ax_simp = Axis(fig[1,2])
+residuals = fit_known(v_zs, profiles; kernels_dir = "kernels_bin")
 
-# # linkaxes!(ax, ax_simp)
+for i_file in eachindex(files)
+    file = files[i_file]
+    open("residuals/residuals_$file.bin", "w") do io
+        write_array(io, residuals[i_file, :,:,:,:,:])
+    end
+end
+end
 
-# # heatmap!(ax_simp, log10.(kernel_simp[:,:,1]*0.2 + kernel_simp[:,:,2]*1e5), colorrange = [-3,3])
-# heatmap!(ax, v_zs, ζs, log10.(kernel), colorrange = [-3,3])
-
-# screen = display(fig)
-# wait(screen) 
+main()
