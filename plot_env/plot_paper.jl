@@ -56,5 +56,43 @@ function plot_residuals(line, params)
     parameter_grid = load_kernel_models_grid(kernels_dir = "../kernels_bin")
     x_param_grid = parameter_grid[param_id[params[1]]]
     y_param_grid = parameter_grid[param_id[params[2]]]
+    incs = [15:20:75;]
+    fig = Figure()
+    axes = []
 
+    for i_inc in eachindex(incs)
+        ax = Axis(fig[(i_inc-1)÷2 + 1, (i_inc-1)%2 + 1], title=latexstring("i = ", incs[i_inc]))
+        push!(axes, ax)
+    end
+
+    u, l = line
+
+    for i_inc in eachindex(incs)
+        inc = incs[i_inc]
+        residuals = open("../residuals/residuals_3-4_$(inc)_$u$l.bin", "r") do io
+            read_array(io, Float64)
+        end
+        min_id = findmin(residuals)[2]
+        println(min_id)
+        println([arr[ind] for (arr, ind) in zip(parameter_grid, Tuple(min_id))])
+        hm_data = zeros(length(x_param_grid), length(y_param_grid))
+        for i_x in eachindex(x_param_grid), i_y in eachindex(y_param_grid)
+            if param_id[params[2]] > param_id[params[1]]
+                data = selectdim(selectdim(residuals, param_id[params[2]], i_y), param_id[params[1]], i_x)
+                hm_data[i_x, i_y] = minimum(data)
+            elseif param_id[params[1]] > param_id[params[2]]
+                data = selectdim(selectdim(residuals, param_id[params[1]], i_x), param_id[params[2]], i_y)
+                hm_data[i_x, i_y] = minimum(data)
+            else
+                return Figure()
+            end
+        end
+        heatmap!(axes[i_inc], x_param_grid, y_param_grid, log10.(hm_data))
+
+        # min_id = findmin(hm_data)[2]
+        min_x = x_param_grid[min_id[param_id[params[1]]]]
+        min_y = y_param_grid[min_id[param_id[params[2]]]]
+        scatter!(axes[i_inc], [min_x], [min_y])
+    end
+    return fig
 end

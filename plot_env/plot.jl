@@ -408,11 +408,11 @@ function plot_observed_saved_kernel(star, obs_v_z, obs_profile, n_ζ; kernels_di
     fig
 end
 
-source_known = open("../hart_to_fit/mag_3-4_75_42_S.bin", "r") do io
+source_known = open("../hart_to_fit/mag_3-4_15_32_S.bin", "r") do io
     read_array(io, Float64)
 end
 
-io = open("../hart_to_fit/mag_3-4_75_42_P.bin", "r") 
+io = open("../hart_to_fit/mag_3-4_15_32_P.bin", "r") 
 v_zs = reverse(read_array(io, Float64))
 profile = reverse(read_array(io, Float64)) .+ 0.00*randn(length(v_zs))
 profile[1] = 1.0; profile[end] = 1.0
