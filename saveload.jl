@@ -97,6 +97,66 @@ function calc_and_save_kernels(star, R_ins, Ws, incs, Δv_zs, Hs, v_z_borders, n
     println("Done!")
 end
 
+function recalc_and_save_absorption(star, Hs; kernels_dir = "kernels")
+    # rm("kernels", recursive = true, force = true)
+    incs, R_ins, Ws, Δv_zs, Hs_old = load_kernel_models_grid(; kernels_dir)
+    v_z_borders, n_freq, n_ζ = load_kernel_grid(; kernels_dir)
+        
+    mkpath("kernels_abs")
+
+    open("kernels_abs/kernel_grid.bin", "w") do io
+        write(io, v_z_borders[1], v_z_borders[2], n_freq, n_ζ)
+        # @printf(io, "%8.2e %8.2e %5i %5i", v_z_borders[1], v_z_borders[2], n_freq, n_ζ)
+    end
+
+    open("kernels_abs/models_grid.bin", "w") do io
+        write_array(io, incs)
+        write_array(io, R_ins)
+        write_array(io, Ws)
+        write_array(io, Δv_zs)
+        write_array(io, Hs)
+    end
+
+    v_z_start, v_z_end = v_z_borders
+    v_z_step = (v_z_end - v_z_start)/n_freq
+    v_zs = [v_z_start + v_z_step*i_v_z - v_z_step/2 for i_v_z = 1:n_freq]
+
+    for i_inc in eachindex(incs), i_R_in in eachindex(R_ins), i_W in eachindex(Ws), i_Δv_z in eachindex(Δv_zs)
+        W = Ws[i_W]
+        R_in = R_ins[i_R_in]
+        R_m = R_in + W/2
+        inc = incs[i_inc]
+        Δv_z = Δv_zs[i_Δv_z]
+        
+        geometry = DipoleGeometry(R_m - W/2, R_m + W/2)
+        orientation = Orientation(inc,0,0)
+        
+        v_z_start, v_z_end = v_z_borders
+        v_z_step = (v_z_end - v_z_start)/n_freq
+
+        ker_string = "$(i_inc)_$(i_R_in)_$(i_W)_$(i_Δv_z)"
+        # kernel_matrix = load_kernel_from_index(i_inc, i_R_in, i_W, i_Δv_z; kernels_dir)
+        # print("\n")
+        for i_H in eachindex(Hs)
+            H = Hs[i_H]
+            print("$inc $R_in $W $Δv_z $H absorption calc... does file kernels/$(ker_string)_$(i_H)_abs.bin exist? $(isfile("kernels/$(ker_string)_$(i_H)_abs.bin"))")
+            if !isfile("kernels_abs/$(ker_string)_$(i_H)_abs.bin")
+                print("\n")
+                absorption = calc_absorption_profile_parallel(star, geometry, orientation, v_zs, Δv_z, 0.01, 0.01, H)
+                open("kernels_abs/$(ker_string)_$(i_H)_abs.bin", "w") do io
+                    write_array(io, absorption)
+                end
+                print("\e[1A\e[2K\e[1G")
+                # print("\e[1A\e[2K\e[1G")
+                # print("\e[1A\e[2K\e[1G")
+                # print("\e[1A\e[2K\e[1G")
+                print("\e[2K\e[1G")
+            end
+        end
+    end
+    println("Done!")
+end
+
 function load_kernel_models_grid(;kernels_dir = "kernels")
     io = open("$kernels_dir/models_grid.bin", "r")
     incs = read_array(io, Float64)

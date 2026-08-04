@@ -752,13 +752,13 @@ function calc_absorption_profile_parallel(star :: AbstractStar, geometry :: Dipo
     jobs = Channel{Tuple{Vector{Float64}, Vector{Float64}, Vector{Float64}}}(n_jobs)
     results = Channel{Tuple{Int, Vector{Float64}}}(n_jobs)
 
-    println("Jobs creation")
+    # println("Jobs creation")
 
     for i_job = 1:n_jobs
         put!(jobs, (x_arr[i_job:n_jobs:end], y_arr[i_job:n_jobs:end], dS_arr[i_job:n_jobs:end]))
     end
 
-    println("Work tasks, $n_threads")
+    # println("Work tasks, $n_threads")
 
     workers = []
 
@@ -775,18 +775,18 @@ function calc_absorption_profile_parallel(star :: AbstractStar, geometry :: Dipo
         push!(workers, w)
     end
 
-    print("Nothing is done. ")
+    # print("Nothing is done. ")
     n_done = 0
     progress_worker = Threads.@spawn :interactive  while n_jobs > 0
-        print("Waiting...")
+        # print("Waiting...")
         i_thread, abs_prof_job = take!(results)
         n_done += 1
         abs_prof += abs_prof_job
         n_jobs -= 1
-        print("\e[2K\e[1GTask $n_done is done (thread $i_thread). $n_jobs remaining tasks. ")
+        # print("\e[2K\e[1GTask $n_done is done (thread $i_thread). $n_jobs remaining tasks. ")
     end
     wait(progress_worker)
-    print("\n")
+    # print("\n")
 
     close(jobs)
     close(results)

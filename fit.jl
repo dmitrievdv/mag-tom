@@ -147,3 +147,59 @@ function fit_known(profiles_v_zs, profiles; kernels_dir = "kernels")
     print("\n")
     return residuals
 end
+
+function fit_known_H(profiles_v_zs, profiles, n_single_line; absorption_dir = "kernels",  kernels_dir = "kernels")
+    incs, R_ins, Ws, Δv_zs, Hs = load_kernel_models_grid(; kernels_dir = absorption_dir)
+    v_z_borders, n_freq, n_ζ = load_kernel_grid(; kernels_dir)
+
+    target_n_freq = 256
+    target_n_ζ = 64
+
+    n_ζ_half = round(Int, log2(n_ζ/target_n_ζ))
+    n_freq_half = round(Int, log2(n_freq/target_n_freq))
+
+    n_inc, n_Rin, n_W, n_Δvz, n_H = length.([incs, R_ins, Ws, Δv_zs, Hs])
+    n_lines, n_prof = size(profiles)
+
+    residuals = zeros(n_lines, n_inc, n_Rin, n_W, n_Δvz)
+    profiles_model_grid = fill(1.0, (n_lines, n_freq))
+     
+    v_z_start, v_z_end = v_z_borders
+    v_z_step = (v_z_end - v_z_start)/n_freq
+    v_zs = [v_z_start + v_z_step*i_v_z - v_z_step/2 for i_v_z = 1:n_freq]
+
+
+    for i_line = 1:n_lines
+        
+
+        profile_int = LinearInterpolation(profiles[i_line, :], profiles_v_zs[i_line, :])
+       
+
+        for i_vz in 1:n_freq
+            v_z = v_zs[i_vz]
+            if minimum(profiles_v_zs[i_line, :]) < v_z < maximum(profiles_v_zs[i_line, :])
+                profiles_model_grid[i_line, i_vz] = profile_int(v_z)
+            end
+        end
+        
+    end
+
+    for i_inc = 1:n_inc, i_Rin = 1:n_Rin, i_W = 1:n_W, i_Δvz = 1:n_Δvz
+        kernel_matrix = kernel_ζ_n_half(load_kernel_from_index(i_inc, i_Rin, i_W, i_Δvz; kernels_dir), n_ζ_half)
+        # println(size(kernel_matrix))
+        # print("")
+        Threads.@threads for i_line = 1:n_lines
+            absorption = load_absorption_from_index(i_inc, i_Rin, i_W, i_Δvz, (i_line-1)÷n_single_line + 1; kernels_dir = absorption_dir)
+            emission_profile = profiles_model_grid[i_line, :] + absorption
+            lg_restored_source = fit_emission_profile(emission_profile, kernel_matrix, v_z_borders, 2.0, 1.0, 0.0)
+            restored_profile = (kernel_matrix / target_n_ζ) * (10 .^ lg_restored_source) - absorption .+ 1.0
+            δ = √((sum( (profiles_model_grid[i_line, :] - restored_profile) .^ 2 )) / n_freq)
+            
+            residuals[i_line, i_inc, i_Rin, i_W, i_Δvz] = δ
+        end
+        print("\e[2K\e[1Gi = $(incs[i_inc]) R_in = $(R_ins[i_Rin]) W = $(Ws[i_W]) Δv_z = $(Δv_zs[i_Δvz])")
+    end
+        
+    print("\n")
+    return residuals
+end

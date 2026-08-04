@@ -208,7 +208,7 @@ end
 function plot_observed_saved_kernel(star, obs_v_z, obs_profile, n_ζ; kernels_dir = "kernels")
     fig = Figure()
 
-    incs, R_ins, Ws, Δv_zs, Hs = load_kernel_models_grid(; kernels_dir)
+    incs, R_ins, Ws, Δv_zs, Hs = load_kernel_models_grid(; kernels_dir = "../kernels_abs")
     v_z_borders, n_freq, n_ζ_calc = load_kernel_grid(; kernels_dir)
 
     n_inc, n_Rin, n_W, n_Δvz, n_H = length.([incs, R_ins, Ws, Δv_zs, Hs])
@@ -282,7 +282,7 @@ function plot_observed_saved_kernel(star, obs_v_z, obs_profile, n_ζ; kernels_di
 
     kernel_matrix = Observable(kernel_ζ_n_half(load_kernel_from_index(i_inc, i_Rin, i_W, i_Δvz; kernels_dir),n_ζ_half))
 
-    absorption_data = load_absorption_from_index(i_inc, i_Rin, i_W, i_Δvz, i_H; kernels_dir)
+    absorption_data = load_absorption_from_index(i_inc, i_Rin, i_W, i_Δvz, i_H; kernels_dir = "../kernels_abs")
 
     absorption = Observable(absorption_data)
 
@@ -290,7 +290,7 @@ function plot_observed_saved_kernel(star, obs_v_z, obs_profile, n_ζ; kernels_di
         i_inc, i_Rin, i_W, i_Δvz, i_H = model_index
         kernel_matrix[] = kernel_ζ_n_half(load_kernel_from_index(i_inc, i_Rin, i_W, i_Δvz; kernels_dir), n_ζ_half)
 
-        absorption[] = load_absorption_from_index(i_inc, i_Rin, i_W, i_Δvz, i_H; kernels_dir)
+        absorption[] = load_absorption_from_index(i_inc, i_Rin, i_W, i_Δvz, i_H; kernels_dir = "../kernels_abs")
     end
 
     hm_ker = heatmap!(ker_ax, v_zs, ζs,  (@lift log10.($kernel_matrix)), colorrange = (-1,2.5))
@@ -408,11 +408,11 @@ function plot_observed_saved_kernel(star, obs_v_z, obs_profile, n_ζ; kernels_di
     fig
 end
 
-source_known = open("../hart_to_fit/mag_3-4_15_32_S.bin", "r") do io
+source_known = open("../hart_to_fit/mag_3-4_15_43_S.bin", "r") do io
     read_array(io, Float64)
 end
 
-io = open("../hart_to_fit/mag_3-4_15_32_P.bin", "r") 
+io = open("../hart_to_fit/mag_3-4_15_43_P.bin", "r") 
 v_zs = reverse(read_array(io, Float64))
 profile = reverse(read_array(io, Float64)) .+ 0.00*randn(length(v_zs))
 profile[1] = 1.0; profile[end] = 1.0
@@ -423,7 +423,7 @@ star = Star("CTTS", 2, 0.8, 4000, 15)
 inc = 60
 
 n=128
-fig = plot_observed_saved_kernel(star, v_zs, profile, 32; kernels_dir="../kernels_bin")
+fig = plot_observed_saved_kernel(star, v_zs, profile, 64; kernels_dir="../kernels_bin")
 # fig = plot_observed_lsq_fft_fit(star, 15, 3.5, 1.0, n, n, (-3.5e7, 3.5e7), 2e6, v_zs, profile)
 
 

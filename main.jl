@@ -23,10 +23,14 @@ source_known = open("hart_to_fit/mag_3-4_60_53_S.bin", "r") do io
     read_array(io, Float64)
 end
 
-files = ["3-4_15_43", "3-4_35_43", "3-4_55_43", "3-4_75_43",
-         "3-4_15_52", "3-4_35_52", "3-4_55_52", "3-4_75_52"]
+files = ["3-4_15_32", "3-4_35_32", "3-4_55_32", "3-4_75_32",
+         "3-4_15_42", "3-4_35_42", "3-4_55_42", "3-4_75_42",
+         "3-4_15_52", "3-4_35_52", "3-4_55_52", "3-4_75_52",
+         "3-4_15_43", "3-4_35_43", "3-4_55_43", "3-4_75_43",
+         "3-4_15_53", "3-4_35_53", "3-4_55_53", "3-4_75_53",
+         "3-4_15_74", "3-4_35_74", "3-4_55_74", "3-4_75_74"]
 
-mkpath("residuals")
+mkpath("residuals_H")
 
 io = open("hart_to_fit/mag_$(files[1])_P.bin", "r") 
 v_zs = reverse(read_array(io, Float64))'
@@ -40,13 +44,15 @@ for file in files[2:end]
     close(io)
 end
     
-    
+Hs = [3.705, 5.788, 7.133, 1.749, 2.070, 1.671]
 
-residuals = fit_known(v_zs, profiles; kernels_dir = "kernels_bin")
+recalc_and_save_absorption(star, Hs; kernels_dir = "kernels_bin")
+
+residuals = fit_known_H(v_zs, profiles, 4; absorption_dir = "kernels_abs", kernels_dir = "kernels_bin")
 
 for i_file in eachindex(files)
     file = files[i_file]
-    open("residuals/residuals_$file.bin", "w") do io
+    open("residuals_H/residuals_$file.bin", "w") do io
         write_array(io, residuals[i_file, :,:,:,:,:])
     end
 end
