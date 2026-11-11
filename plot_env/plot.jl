@@ -2,7 +2,7 @@ using GLMakie
 
 include("../include.jl")
 
-function plot_observed_lsq_fft_fit(star, inc, R_m, W, n_freq, n_ζ, v_z_borders, Δv_z, obs_v_z, obs_profile)
+function plot_observed_lsq_fft_fit(star, inc, R_m, W, n_freq, n_ζ, v_z_borders, Δv_z, obs_v_z, obs_profile; center = 0)
     fig = Figure()
 
     ζs = [4i_ζ/n_ζ - 2/n_ζ for i_ζ = 1:(n_ζ÷4)]
@@ -143,11 +143,11 @@ function plot_observed_lsq_fft_fit(star, inc, R_m, W, n_freq, n_ζ, v_z_borders,
         pow[] = pow_val
     end
 
-    center = 0*1e5
+    # center = 0*1e5
 
     restored_source_points = lift(emission_assumed) do emission_assumed
         @time restored_source_data = fit_emission_profile(emission_assumed, kernel_matrix[], v_z_borders,
-                                                                         pow[], damp[], center)
+                                                                         pow[], damp[], center*1e5)
         points = zeros(2, n_ζ÷4)
         points[1,:] = ζs
         points[2,:] = restored_source_data
@@ -171,7 +171,7 @@ function plot_observed_lsq_fft_fit(star, inc, R_m, W, n_freq, n_ζ, v_z_borders,
     end
 
     δ = lift(profile_mod) do profile_mod
-        √( 1/(n_freq-1)*sum((profile_mod[abs.(v_zs) .> center] - observed_profile[abs.(v_zs) .> center]) .^ 2))
+        √( 1/(n_freq-1)*sum((profile_mod[abs.(v_zs) .> center*1e5] - observed_profile[abs.(v_zs) .> center*1e5]) .^ 2))
     end
 
     on(δ) do δ
@@ -205,10 +205,10 @@ function plot_observed_lsq_fft_fit(star, inc, R_m, W, n_freq, n_ζ, v_z_borders,
     fig
 end
 
-function plot_observed_saved_kernel(star, obs_v_z, obs_profile, n_ζ; kernels_dir = "kernels")
+function plot_observed_saved_kernel(star, obs_v_z, obs_profile, n_ζ; kernels_dir = "kernels", center = 0)
     fig = Figure()
 
-    incs, R_ins, Ws, Δv_zs, Hs = load_kernel_models_grid(; kernels_dir = "../kernels_abs")
+    incs, R_ins, Ws, Δv_zs, Hs = load_kernel_models_grid(; kernels_dir)
     v_z_borders, n_freq, n_ζ_calc = load_kernel_grid(; kernels_dir)
 
     n_inc, n_Rin, n_W, n_Δvz, n_H = length.([incs, R_ins, Ws, Δv_zs, Hs])
@@ -245,13 +245,13 @@ function plot_observed_saved_kernel(star, obs_v_z, obs_profile, n_ζ; kernels_di
     mod_R_in_sl_txt = Label(fig[1,2][2,1], text = @lift @sprintf("R_m = %.1f", R_ins[getindex($model_index, 2)]))
 
     mod_W_sl = Slider(fig[1,2][3,2], range = 1:n_W, startvalue = i_W, update_while_dragging = true)
-    mod_W_sl_txt = Label(fig[1,2][3,1], text = @lift @sprintf("W = %.1f", Ws[getindex($model_index, 3)]))
+    mod_W_sl_txt = Label(fig[1,2][3,1], text = @lift @sprintf("W = %.2f", Ws[getindex($model_index, 3)]))
 
     mod_Δv_z_sl = Slider(fig[1,2][4,2], range = 1:n_Δvz, startvalue = i_Δvz, update_while_dragging = true)
     mod_Δv_z_sl_txt = Label(fig[1,2][4,1], text = @lift @sprintf("Δv_z = %.1f", Δv_zs[getindex($model_index, 4)]))
 
     mod_H_sl = Slider(fig[1,2][5,2], range = 1:n_H, startvalue = i_H, update_while_dragging = true)
-    mod_H_sl_txt = Label(fig[1,2][5,1], text = @lift @sprintf("H = %.1f", Hs[getindex($model_index, 5)]))
+    mod_H_sl_txt = Label(fig[1,2][5,1], text = @lift @sprintf("H = %.2f", Hs[getindex($model_index, 5)]))
 
     on(mod_inc_sl.value) do mod_i_inc
         model_index[][1] = mod_i_inc
@@ -282,7 +282,7 @@ function plot_observed_saved_kernel(star, obs_v_z, obs_profile, n_ζ; kernels_di
 
     kernel_matrix = Observable(kernel_ζ_n_half(load_kernel_from_index(i_inc, i_Rin, i_W, i_Δvz; kernels_dir),n_ζ_half))
 
-    absorption_data = load_absorption_from_index(i_inc, i_Rin, i_W, i_Δvz, i_H; kernels_dir = "../kernels_abs")
+    absorption_data = load_absorption_from_index(i_inc, i_Rin, i_W, i_Δvz, i_H; kernels_dir)
 
     absorption = Observable(absorption_data)
 
@@ -290,7 +290,7 @@ function plot_observed_saved_kernel(star, obs_v_z, obs_profile, n_ζ; kernels_di
         i_inc, i_Rin, i_W, i_Δvz, i_H = model_index
         kernel_matrix[] = kernel_ζ_n_half(load_kernel_from_index(i_inc, i_Rin, i_W, i_Δvz; kernels_dir), n_ζ_half)
 
-        absorption[] = load_absorption_from_index(i_inc, i_Rin, i_W, i_Δvz, i_H; kernels_dir = "../kernels_abs")
+        absorption[] = load_absorption_from_index(i_inc, i_Rin, i_W, i_Δvz, i_H; kernels_dir)
     end
 
     hm_ker = heatmap!(ker_ax, v_zs, ζs,  (@lift log10.($kernel_matrix)), colorrange = (-1,2.5))
@@ -346,11 +346,10 @@ function plot_observed_saved_kernel(star, obs_v_z, obs_profile, n_ζ; kernels_di
         pow[] = pow_val
     end
 
-    center = 0*1e5
 
     restored_source_points = lift(emission_assumed, pow, damp) do emission_assumed, pow, damp
         restored_source_data = fit_emission_profile(emission_assumed, kernel_matrix[], v_z_borders,
-                                                                         pow, damp, center)
+                                                                         pow, damp, center*1e5)
         points = zeros(2, n_ζ)
         points[1,:] = ζs
         points[2,:] = restored_source_data
@@ -374,7 +373,7 @@ function plot_observed_saved_kernel(star, obs_v_z, obs_profile, n_ζ; kernels_di
     end
 
     δ = lift(profile_mod) do profile_mod
-        √( 1/(n_freq-1)*sum((profile_mod[abs.(v_zs) .> center] - observed_profile[abs.(v_zs) .> center]) .^ 2))
+        √( 1/(n_freq-1)*sum((profile_mod[abs.(v_zs) .> center*1e5] - observed_profile[abs.(v_zs) .> center*1e5]) .^ 2))
     end
 
     on(δ) do δ
@@ -408,38 +407,74 @@ function plot_observed_saved_kernel(star, obs_v_z, obs_profile, n_ζ; kernels_di
     fig
 end
 
-source_known = open("../hart_to_fit/mag_3-4_15_43_S.bin", "r") do io
-    read_array(io, Float64)
+function rolling_mean(array, window)
+    n = length(array)
+    rolled = zeros(n - 2window)
+    for i = window+1:n-window
+        rolled[i-window] = sum(array[i-window:i+window])/(2window+1)
+    end
+    return rolled
 end
 
-io = open("../hart_to_fit/mag_3-4_15_43_P.bin", "r") 
-v_zs = reverse(read_array(io, Float64))
-profile = reverse(read_array(io, Float64)) .+ 0.00*randn(length(v_zs))
-profile[1] = 1.0; profile[end] = 1.0
-close(io)
+# source_known = open("../hart_to_fit/mag_3-4_15_43_S.bin", "r") do io
+#     read_array(io, Float64)
+# end
 
-star = Star("CTTS", 2, 0.8, 4000, 15)
+# io = open("../hart_to_fit/mag_3-4_15_43_P.bin", "r") 
+# v_zs = reverse(read_array(io, Float64))
+# profile = reverse(read_array(io, Float64)) .+ 0.00*randn(length(v_zs))
+# profile[1] = 1.0; profile[end] = 1.0
+# close(io)
+
+v_zs = Float64[]
+profile = Float64[]
+open("pds70obs-archive_2.dat", "r") do io
+    for line in readlines(io)   
+        v_z, r = parse.(Float64, split(line))
+        # r = r - 0.6*exp(-(v_z^2/(2*20^2)))
+        # if v_z < -250 
+        #     r = 1
+        # end
+        push!(v_zs, v_z)
+        push!(profile, r)
+    end
+end
+
+v_zs_old = Float64[]
+profile_old = Float64[]
+open("pds70-obs.dat", "r") do io
+    for line in readlines(io)
+        v_z, r = parse.(Float64, split(line))
+        push!(v_zs_old, v_z)
+        push!(profile_old, r)
+    end
+end
+
+
+star = Star("PDS70", 1.26, 0.76, 4060, 21)
 
 inc = 60
 
+# profile = profile .- 0.65 .* exp.(-v_zs .^2 /2/(30)^2)
+
 n=128
-fig = plot_observed_saved_kernel(star, v_zs, profile, 64; kernels_dir="../kernels_bin")
-# fig = plot_observed_lsq_fft_fit(star, 15, 3.5, 1.0, n, n, (-3.5e7, 3.5e7), 2e6, v_zs, profile)
+fig = plot_observed_saved_kernel(star, v_zs*1e5, profile, 64; kernels_dir="kernels", center = 0)
+# fig = plot_observed_lsq_fft_fit(star, 45, 4.0, 0.6, n, n, (-3e7, 6e7), 4e6, v_zs*1e5, profile; center = 0)
 
 
-R_ms = [3,3.5,4]
-n_S = size(source_known)[2]
-for i_Rm = 1:3
-    R_m = R_ms[i_Rm]
-    rs = collect(range(1,R_m,n_S))
-    θs = asin.(sqrt.(rs/R_m))
-    ζs = zeros(n_S)
-    for i_ζ = 1:n_S
-        r_m, ζ = spheretogridproper(DipoleGeometry(3,4), rs[i_ζ], θs[i_ζ])
-        ζs[i_ζ] = ζ
-    end
-    lines!(fig.content[13], ζs, log10.(source_known[i_Rm,:]))
-end
+# R_ms = [3,3.5,4]
+# n_S = size(source_known)[2]
+# for i_Rm = 1:3
+#     R_m = R_ms[i_Rm]
+#     rs = collect(range(1,R_m,n_S))
+#     θs = asin.(sqrt.(rs/R_m))
+#     ζs = zeros(n_S)
+#     for i_ζ = 1:n_S
+#         r_m, ζ = spheretogridproper(DipoleGeometry(3,4), rs[i_ζ], θs[i_ζ])
+#         ζs[i_ζ] = ζ
+#     end
+#     lines!(fig.content[13], ζs, log10.(source_known[i_Rm,:]))
+# end
 
-scene = display(fig)
-wait(scene)
+# scene = display(fig)
+# wait(scene)

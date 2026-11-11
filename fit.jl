@@ -126,22 +126,24 @@ function fit_known(profiles_v_zs, profiles; kernels_dir = "kernels")
         
     end
 
-    for i_inc = 1:n_inc, i_Rin = 1:n_Rin, i_W = 1:n_W, i_Δvz = 1:n_Δvz
-        kernel_matrix = kernel_ζ_n_half(load_kernel_from_index(i_inc, i_Rin, i_W, i_Δvz; kernels_dir), n_ζ_half)
-        # println(size(kernel_matrix))
-        for i_H = 1:n_H
-            # print("")
-            absorption = load_absorption_from_index(i_inc, i_Rin, i_W, i_Δvz, i_H; kernels_dir)
-            Threads.@threads for i_line = 1:n_lines
-                emission_profile = profiles_model_grid[i_line, :] + absorption
-                lg_restored_source = fit_emission_profile(emission_profile, kernel_matrix, v_z_borders, 2.0, 1.0, 0.0)
-                restored_profile = (kernel_matrix / target_n_ζ) * (10 .^ lg_restored_source) - absorption .+ 1.0
-                δ = √((sum( (profiles_model_grid[i_line, :] - restored_profile) .^ 2 )) / n_freq)
+    for i_inc = 1:n_inc, i_Rin = 1:n_Rin, i_W = 1:n_W
+        Threads.@threads for i_Δvz = 1:n_Δvz
+            kernel_matrix = kernel_ζ_n_half(load_kernel_from_index(i_inc, i_Rin, i_W, i_Δvz; kernels_dir), n_ζ_half)
+            # println(size(kernel_matrix))
+            for i_H = 1:n_H
+                # print("")
+                absorption = load_absorption_from_index(i_inc, i_Rin, i_W, i_Δvz, i_H; kernels_dir)
+                for i_line = 1:n_lines
+                    emission_profile = profiles_model_grid[i_line, :] + absorption
+                    lg_restored_source = fit_emission_profile(emission_profile, kernel_matrix, v_z_borders, 2.0, 1.0, 0.0)
+                    restored_profile = (kernel_matrix / target_n_ζ) * (10 .^ lg_restored_source) - absorption .+ 1.0
+                    δ = √((sum( (profiles_model_grid[i_line, :] - restored_profile) .^ 2 )) / n_freq)
             
-                residuals[i_line, i_inc, i_Rin, i_W, i_Δvz, i_H] = δ
+                    residuals[i_line, i_inc, i_Rin, i_W, i_Δvz, i_H] = δ
+                end
             end
         end
-        print("\e[2K\e[1Gi = $(incs[i_inc]) R_in = $(R_ins[i_Rin]) W = $(Ws[i_W]) Δv_z = $(Δv_zs[i_Δvz])")
+        print("\e[2K\e[1Gi = $(incs[i_inc]) R_in = $(R_ins[i_Rin]) W = $(Ws[i_W])")
     end
         
     print("\n")

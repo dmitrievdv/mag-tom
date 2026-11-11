@@ -86,9 +86,9 @@ function calc_and_save_kernels(star, R_ins, Ws, incs, Δv_zs, Hs, v_z_borders, n
                     write_array(io, absorption)
                 end
                 print("\e[1A\e[2K\e[1G")
-                print("\e[1A\e[2K\e[1G")
-                print("\e[1A\e[2K\e[1G")
-                print("\e[1A\e[2K\e[1G")
+                # print("\e[1A\e[2K\e[1G")
+                # print("\e[1A\e[2K\e[1G")
+                # print("\e[1A\e[2K\e[1G")
                 print("\e[2K\e[1G")
             end
         end
@@ -153,6 +153,124 @@ function recalc_and_save_absorption(star, Hs; kernels_dir = "kernels")
                 print("\e[2K\e[1G")
             end
         end
+    end
+    println("Done!")
+end
+
+function redo_models_grid(star, incs, R_ins, Ws, Δv_zs, Hs; n_Rm = 10, n_vz = 10)
+    incs_old, R_ins_old, Ws_old, Δv_zs_old, Hs_old = load_kernel_models_grid()
+    v_z_borders, n_freq, n_ζ = load_kernel_grid()
+
+    open("kernels/models_grid.bin", "w") do io
+        write_array(io, incs)
+        write_array(io, R_ins)
+        write_array(io, Ws)
+        write_array(io, Δv_zs)
+        write_array(io, Hs)
+    end
+
+    v_z_start, v_z_end = v_z_borders
+    v_z_step = (v_z_end - v_z_start)/n_freq
+    v_zs = [v_z_start + v_z_step*i_v_z - v_z_step/2 for i_v_z = 1:n_freq]
+
+    println(incs_old)
+
+    for i_inc in eachindex(incs), i_R_in in eachindex(R_ins), i_W in eachindex(Ws), i_Δv_z in eachindex(Δv_zs), i_H in eachindex(Hs)
+        W = Ws[i_W]
+        R_in = R_ins[i_R_in]
+        inc = incs[i_inc]
+        Δv_z = Δv_zs[i_Δv_z]
+        H = Hs[i_H]
+
+        ker_string = "$(i_inc)_$(i_R_in)_$(i_W)_$(i_Δv_z)"
+
+        old_kernel_files = readdir("kernels")
+
+        for old_file in old_kernel_files
+            mv("kernels/$old_file", "kernels/old_$old_file")
+        end
+
+        if inc ∈ incs_old
+            println(inc)
+            if R_in ∈ R_ins_old
+                println(W)
+                if W ∈ Ws_old
+                    println(Δv_z)
+                    if Δv_z ∈ Δv_zs_old
+                        println(Δv_z)
+                        i_inc_old = findfirst(x -> x ≈ inc, incs_old)
+                        i_R_in_old = findfirst(x -> x ≈ R_in, R_ins_old)
+                        i_W_old = findfirst(x -> x ≈ W, Ws_old)
+                        i_Δv_z_old = findfirst(x -> x ≈ Δv_z, Δv_zs_old)
+
+                        ker_string_old = "$(i_inc_old)_$(i_R_in_old)_$(i_W_old)_$(i_Δv_z_old)"
+                        ker_file_old = "kernels/old_$(ker_string_old)_ker.bin"; ker_file = "kernels/$(ker_string_old)_ker.bin"
+                        if ker_file != ker_file_old
+                            mv(ker_file_old, ker_file, force = true)
+                        end
+
+                        if H ∈ Hs_old
+                            println(H)
+                            i_H_old = findfirst(x -> x ≈ H, Hs_old)
+                            abs_file = "kernels/$(ker_string_old)_$(i_H_old)_abs.bin"; abs_file_old = "kernels/old_$(ker_string)_$(i_H)_abs.bin"
+                            if abs_file != abs_file_old
+                                mv("kernels/$(ker_string_old)_$(i_H_old)_abs.bin", "kernels/$(ker_string)_$(i_H)_abs.bin", force = true)
+                                println("Moving kernels/$(ker_string_old)_$(i_H_old)_abs.bin to kernels/$(ker_string)_$(i_H)_abs.bin")
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    for i_inc in eachindex(incs), i_R_in in eachindex(R_ins), i_W in eachindex(Ws), i_Δv_z in eachindex(Δv_zs)
+        W = Ws[i_W]
+        R_in = R_ins[i_R_in]
+        R_m = R_in + W/2
+        inc = incs[i_inc]
+        Δv_z = Δv_zs[i_Δv_z]
+
+        ker_string = "$(i_inc)_$(i_R_in)_$(i_W)_$(i_Δv_z)"
+        
+        geometry = DipoleGeometry(R_m - W/2, R_m + W/2)
+        orientation = Orientation(inc,0,0)
+        
+        v_z_start, v_z_end = v_z_borders
+        v_z_step = (v_z_end - v_z_start)/n_freq
+
+        print("$inc $R_in $W $Δv_z kernel calc... does file kernels/$(ker_string)_ker.bin exist? $(isfile("kernels/$(ker_string)_ker.bin"))")
+        if !isfile("kernels/$(ker_string)_ker.bin")
+            print("\n")
+            kernel_matrix = calc_emission_kernel_matrix(star, geometry, orientation, Δv_z, n_freq, n_ζ, v_z_borders; n_Rm = n_Rm, n_vz = n_vz)
+            print("\e[1A\e[2K\e[1G")
+            print("\e[1A\e[2K\e[1G")
+            print("\e[1A\e[2K\e[1G")
+            open("kernels/$(ker_string)_ker.bin", "w") do io
+                write_array(io, kernel_matrix)
+            end
+        end
+        # print("\n")
+        for i_H in eachindex(Hs)
+            H = Hs[i_H]
+            print("$inc $R_in $W $Δv_z $H absorption calc... does file kernels/$(ker_string)_$(i_H)_abs.bin exist? $(isfile("kernels/$(ker_string)_$(i_H)_abs.bin"))")
+            
+            if !isfile("kernels/$(ker_string)_$(i_H)_abs.bin")
+                print("\n")
+                absorption = calc_absorption_profile_parallel(star, geometry, orientation, v_zs, Δv_z, 0.01, 0.01, H)
+                open("kernels/$(ker_string)_$(i_H)_abs.bin", "w") do io
+                    write_array(io, absorption)
+                end
+                print("\e[1A\e[2K\e[1G")
+                # print("\e[1A\e[2K\e[1G")
+                # print("\e[1A\e[2K\e[1G")
+                # print("\e[1A\e[2K\e[1G")
+                print("\e[2K\e[1G")
+            else
+                print("\e[2K\e[1G")
+            end
+        end
+        print("\e[1A\e[2K\e[1G")
     end
     println("Done!")
 end

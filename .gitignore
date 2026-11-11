@@ -8,3 +8,8 @@ hart_mag
 hart_to_fit
 *.bin
 *.pdf
+kernels_pds70
+plot_env/source_PaBr75.pdf_tex
+.gitignore
+*.dat
+plot_env/source_PaBr75.svg
