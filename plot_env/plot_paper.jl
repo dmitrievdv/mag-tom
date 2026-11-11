@@ -3,6 +3,8 @@ using LaTeXStrings
 
 include("../include.jl")
 
+CairoMakie.activate!()
+
 series = Dict(1 => "\\mathrm{La}", 2 => "\\mathrm{H}", 3 => "\\mathrm{Pa}", 4 => "\\mathrm{Br}")
 greek = Dict(1 => "\\alpha", 2 => "\\beta", 3 => "\\gamma")
 

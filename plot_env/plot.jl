@@ -425,10 +425,11 @@ end
 # profile = reverse(read_array(io, Float64)) .+ 0.00*randn(length(v_zs))
 # profile[1] = 1.0; profile[end] = 1.0
 # close(io)
+GLMakie.activate!()
 
 v_zs = Float64[]
 profile = Float64[]
-open("pds70obs-archive_2.dat", "r") do io
+open("../pds70obs-archive_2-nolines.dat", "r") do io
     for line in readlines(io)   
         v_z, r = parse.(Float64, split(line))
         # r = r - 0.6*exp(-(v_z^2/(2*20^2)))
@@ -442,7 +443,7 @@ end
 
 v_zs_old = Float64[]
 profile_old = Float64[]
-open("pds70-obs.dat", "r") do io
+open("../pds70obs-archive_2.dat", "r") do io
     for line in readlines(io)
         v_z, r = parse.(Float64, split(line))
         push!(v_zs_old, v_z)
@@ -458,7 +459,7 @@ inc = 60
 # profile = profile .- 0.65 .* exp.(-v_zs .^2 /2/(30)^2)
 
 n=128
-fig = plot_observed_saved_kernel(star, v_zs*1e5, profile, 64; kernels_dir="kernels", center = 0)
+fig = plot_observed_saved_kernel(star, v_zs*1e5, profile, 64; kernels_dir="../kernels_pds70_new", center = 0)
 # fig = plot_observed_lsq_fft_fit(star, 45, 4.0, 0.6, n, n, (-3e7, 6e7), 4e6, v_zs*1e5, profile; center = 0)
 
 
@@ -476,5 +477,5 @@ fig = plot_observed_saved_kernel(star, v_zs*1e5, profile, 64; kernels_dir="kerne
 #     lines!(fig.content[13], ζs, log10.(source_known[i_Rm,:]))
 # end
 
-# scene = display(fig)
-# wait(scene)
+scene = display(fig)
+wait(scene)
